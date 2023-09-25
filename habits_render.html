@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Habit Tracker Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+    }
+
+    .habit-item {
+      margin-bottom: 10px;
+    }
+
+    .habit-item button {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Habit Tracker Dashboard</h1>
+
+    <div class="habit-item">
+      <button onclick="createHabit()">Create Habit</button>
+      <input type="text" id="habitName" placeholder="Enter habit name">
+    </div>
+
+    <div id="habitsList"></div>
+
+    <h2>Habit Counts</h2>
+    <div>
+      <span>Total Habits: <span id="totalHabits">0</span></span>
+      <span>Completed: <span id="completedHabits">0</span></span>
+      <span>Not Completed: <span id="notCompletedHabits">0</span></span>
+    </div>
+  </div>
+
+  <script>
+    function createHabit() {
+      // Implement creating a habit using the API
+      // For simplicity, let's just log the habit name
+      const habitName = document.getElementById('habitName').value;
+      console.log('Creating habit:', habitName);
+    }
+
+    // Simulated data for habits (replace with API calls)
+    const habitsData = [
+      { id: 1, name: 'Exercise', completed: false },
+      { id: 2, name: 'Read', completed: true },
+      // ... Add more habits as needed
+    ];
+
+    function renderHabits() {
+      const habitsList = document.getElementById('habitsList');
+      habitsList.innerHTML = '';
+
+      habitsData.forEach(habit => {
+        const habitItem = document.createElement('div');
+        habitItem.classList.add('habit-item');
+        habitItem.innerHTML = `
+          <button onclick="toggleHabitStatus(${habit.id})">${habit.completed ? 'Not Done' : 'Done'}</button>
+          ${habit.name}
+        `;
+        habitsList.appendChild(habitItem);
+      });
+    }
+
+    function toggleHabitStatus(habitId) {
+      // Implement toggling habit status using the API
+      const habit = habitsData.find(h => h.id === habitId);
+      if (habit) {
+        habit.completed = !habit.completed;
+        renderHabits();
+        updateHabitCounts();
+      }
+    }
+
+    function updateHabitCounts() {
+      const totalHabits = habitsData.length;
+      const completedHabits = habitsData.filter(h => h.completed).length;
+      const notCompletedHabits = totalHabits - completedHabits;
+
+      document.getElementById('totalHabits').textContent = totalHabits;
+      document.getElementById('completedHabits').textContent = completedHabits;
+      document.getElementById('notCompletedHabits').textContent = notCompletedHabits;
+    }
+
+    // Initial rendering of habits and counts
+    renderHabits();
+    updateHabitCounts();
+  </script>
+</body>
+</html>
