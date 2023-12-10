@@ -19,6 +19,13 @@
     .habit-item button {
       margin-right: 10px;
     }
+
+    .green-row {
+      background-color: #99ff99; /* Light green */
+    }
+    .blank-row {
+      background-color: #ffffff; /* White */
+    }
   </style>
 </head>
 <body onload = "refreshTable();">
@@ -34,6 +41,8 @@
           <th>Habit Name</th>
           <th>Habit Description</th>
           <th>Frequency</th>
+          <th> Completed</th>
+          <th> Delete</th>
         </tr>
       </thead>
       <tbody id="habitsTableBody">
@@ -64,6 +73,7 @@
           habitid,
           habitcomplete
         };
+
         fetch('/api/habitcomplete', {
         method: 'PUT',
         headers: {
@@ -107,11 +117,18 @@
             habitsData = [];
             data.forEach(habit => {
               const habitRow = document.createElement('tr');
+              habitRow.className = 'blank-row';
+              if (habit.habit_done)
+              {
+                habitRow.className = 'green-row';
+              }
+              
               habitRow.innerHTML = `
                 <td>${habit.habit_name}</td>
                 <td>${habit.habit_desc}</td>
                 <td>${habit.frequency}</td>
                 <td><button onclick="toggleHabitStatus(${habit.idhabit})">${habit.habit_done ? 'Not Done' : 'Done'}</button></td>
+                <td><button onclick="deleteButton(${habit.idhabit})">&#128465</button></td>
               `;
               habitsTableBody.appendChild(habitRow);
               habitsData.push({id: habit.idhabit, name: habit.habit_name, frequency: habit.frequency, completed: habit.habit_done});
@@ -144,19 +161,7 @@
     const habitsTableBody = document.getElementById('habitsTableBody');
   
     console.log("value is:",rowIndex)
-    // Ensure the row index is valid
-    // if (rowIndex >= habitsTableBody.childNodes.length) {
-    //   console.error('Invalid row index:', rowIndex);
-    //   return;
-    // }
 
-    // const newRow = habitsTableBody.childNodes[rowIndex];
-
-    // // Ensure the new row exists
-    // if (!newRow) {
-    //   console.error('Row does not exist at index:', rowIndex);
-    //   return;
-    // }
 
     const habitNameInput = document.getElementById(`HabitName_${rowIndex}`);
     const habitDescInput = document.getElementById(`HabitDesc_${rowIndex}`);
@@ -198,6 +203,33 @@
     })
     .catch(error => console.error('Error creating habit:', error));
   }
+
+  function deleteButton(habitsid)
+  {
+    const query_data = {habitsid};
+    fetch('/api/habits', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(query_data)
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Habit deleted successfully:', data);
+      refreshTable();
+      // Remove the row from the table
+      //newRow.remove();
+    })
+    .catch(error => console.error('Error deleting habit:', error));
+  }
+
+
 
   function cancelRowCreation(rowIndex) {
     // const rowToRemove = event.target.closest('tr');

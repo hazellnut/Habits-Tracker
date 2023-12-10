@@ -1,5 +1,6 @@
 const express = require('express');
 const mysql = require('mysql');
+const cron = require('node-cron');
 const app = express();
 
 // MySQL configuration
@@ -64,6 +65,8 @@ app.post('/api/habits', (req, res) => {
   });
 });
 
+
+
 app.put('/api/habitcomplete', (req, res) => {
   const { habitid, habitcomplete } = req.body;
 
@@ -89,7 +92,48 @@ app.put('/api/habitcomplete', (req, res) => {
     });
 });
 
-app.delete('/api/habits', )
+app.delete('/api/habits', (req, res) => {
+  const {habitsid} = req.body;
+  const deletequery = "DELETE FROM habits WHERE (idhabits = ?)";
+  db.query(deletequery,habitsid, (err, results) => {
+    if (err) {
+      console.error('Error Deleting Habit',err);
+      return res.status(500).json({error: 'Internal server error'});
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+    // Success
+    return res.json({ success: true });
+  });
+});
+
+cron.schedule('0 23 * * *', () => {
+  console.log('Running the database update task...');
+  updateTracking();
+});
+
+function updateTracking()
+{
+  const query = 'SELECT habit_name, habit_desc, frequency, idhabit, habit_done FROM habits INNER JOIN habit_complete ON idhabits=idhabit';
+
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching habits from the database' });
+      return;
+    }
+
+    var habitsData = res.json(results);
+
+  });
+  habitsData.foreach(habit=>
+   {
+      
+   }   
+  );
+
+
+}
 
 
 // Start the server
@@ -106,3 +150,4 @@ function insert_habit(){
 function add_success_field(id){
 
 }
+
