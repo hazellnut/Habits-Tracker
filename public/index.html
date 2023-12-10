@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Habit Tracker Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+    }
+
+    .habit-item {
+      margin-bottom: 10px;
+    }
+
+    .habit-item button {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body onload = "refreshTable();">
+  <div class="container">
+    <h1>Habit Tracker Dashboard</h1>
+    <div id="habitsList"></div>
+
+    <button onclick="addNewRow()">+</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Habit Name</th>
+          <th>Habit Description</th>
+          <th>Frequency</th>
+        </tr>
+      </thead>
+      <tbody id="habitsTableBody">
+        <!-- Habit data will be displayed here -->
+      </tbody>
+    </table>
+    <h2>Habit Counts</h2>
+    <div>
+      <span>Total Habits: <span id="totalHabits">0</span></span>
+      <span>Completed: <span id="completedHabits">0</span></span>
+      <span>Not Completed: <span id="notCompletedHabits">0</span></span>
+    </div>
+  </div>
+
+  <script>
+
+    var habitsData = [];
+
+
+    function toggleHabitStatus(habitId) {
+      // Implement toggling habit status using the API
+      const habit = habitsData.find(h => h.id === habitId);
+      if (habit) {
+        habit.completed = !habit.completed;
+        const habitid = habit.id;
+        const habitcomplete = habit.completed;
+        const success_data = {
+          habitid,
+          habitcomplete
+        };
+        fetch('/api/habitcomplete', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(success_data)
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Habit updated successfully:', data);
+          refreshTable();
+        })
+    .catch(error => console.error('Error updating habit:', error));
+    }
+  }
+
+    function updateHabitCounts() {
+      const totalHabits = habitsData.length;
+      const completedHabits = habitsData.filter(h => h.completed).length;
+      const notCompletedHabits = totalHabits - completedHabits;
+
+      document.getElementById('totalHabits').textContent = totalHabits;
+      document.getElementById('completedHabits').textContent = completedHabits;
+      document.getElementById('notCompletedHabits').textContent = notCompletedHabits;
+    }
+
+
+    async function fetchHabits() {
+    // Fetch habit data from the server (replace with your API endpoint)
+
+        await fetch('/api/habits')
+          .then(response => response.json())
+          .then(data => {
+            const habitsTableBody = document.getElementById('habitsTableBody');
+            habitsTableBody.innerHTML = '';
+            habitsData = [];
+            data.forEach(habit => {
+              const habitRow = document.createElement('tr');
+              habitRow.innerHTML = `
+                <td>${habit.habit_name}</td>
+                <td>${habit.habit_desc}</td>
+                <td>${habit.frequency}</td>
+                <td><button onclick="toggleHabitStatus(${habit.idhabit})">${habit.habit_done ? 'Not Done' : 'Done'}</button></td>
+              `;
+              habitsTableBody.appendChild(habitRow);
+              habitsData.push({id: habit.idhabit, name: habit.habit_name, frequency: habit.frequency, completed: habit.habit_done});
+          })
+        })
+        .catch(error => console.error('Error fetching habits:', error));
+
+    }
+    function addNewRow() {
+    const habitsTableBody = document.getElementById('habitsTableBody');
+
+    const newRow = document.createElement('tr');
+    const rowNum = habitsTableBody.childNodes.length + 1
+    newRow.innerHTML = `
+      <td><input type="text" placeholder="Enter habit name" id ="HabitName_${rowNum}"></td>
+      <td><input type="text" placeholder="Enter habit description" id ="HabitDesc_${rowNum}"></td>
+      <td><input type="number" placeholder="Enter frequency" id ="HabitFreq_${rowNum}"></td>
+      <td>
+        <button onclick="confirmRowCreation(${rowNum})">&#10004;</button>
+        <button onclick="cancelRowCreation(event)">&#10006;</button>
+      </td>
+    `;
+
+    habitsTableBody.appendChild(newRow);
+    console.log("new row index is:", habitsTableBody.childNodes.length)
+ 
+  }
+
+  function confirmRowCreation(rowIndex) {
+    const habitsTableBody = document.getElementById('habitsTableBody');
+  
+    console.log("value is:",rowIndex)
+    // Ensure the row index is valid
+    // if (rowIndex >= habitsTableBody.childNodes.length) {
+    //   console.error('Invalid row index:', rowIndex);
+    //   return;
+    // }
+
+    // const newRow = habitsTableBody.childNodes[rowIndex];
+
+    // // Ensure the new row exists
+    // if (!newRow) {
+    //   console.error('Row does not exist at index:', rowIndex);
+    //   return;
+    // }
+
+    const habitNameInput = document.getElementById(`HabitName_${rowIndex}`);
+    const habitDescInput = document.getElementById(`HabitDesc_${rowIndex}`);
+    const frequencyInput = document.getElementById(`HabitFreq_${rowIndex}`);
+
+
+    const habitName = habitNameInput.value;
+    const habitDesc = habitDescInput.value;
+    const frequency = frequencyInput.value;
+
+    console.log('Habit data to be sent:', { habitName, habitDesc, frequency });
+
+
+    const habitData = {
+      habitName,
+      habitDesc,
+      frequency
+    };
+
+    // Send the habit information to the server to create the habit
+    fetch('/api/habits', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(habitData)
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Habit created successfully:', data);
+      refreshTable();
+      // Remove the row from the table
+      //newRow.remove();
+    })
+    .catch(error => console.error('Error creating habit:', error));
+  }
+
+  function cancelRowCreation(rowIndex) {
+    // const rowToRemove = event.target.closest('tr');
+    // rowToRemove.remove();
+  // Remove the new row
+    refreshTable();
+  }
+
+  async function refreshTable(){
+    fetchHabits().then(()=> updateHabitCounts());
+
+    //renderHabits();
+    
+  }
+
+  // Call the fetchHabits function to populate the table
+    // fetchHabits();
+
+    // // Initial rendering of habits and counts
+    // renderHabits();
+    // updateHabitCounts();
+    window.onload = refreshTable;
+  </script>
+</body>
+</html>
