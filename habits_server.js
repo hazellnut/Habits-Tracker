@@ -66,6 +66,34 @@ app.post('/api/habits', (req, res) => {
 });
 
 
+app.put('/api/habits/:habitId', (req, res) => {
+  const habitId = req.params.habitId;
+  const { habitName, habitDesc, frequency } = req.body;
+
+  if (!habitName || !habitDesc || !frequency) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const updateQuery = 'UPDATE habits SET habit_name = ?, habit_desc = ?, frequency = ? WHERE idhabits = ?';
+  db.query(updateQuery, [habitName, habitDesc, frequency, habitId], (err, result) => {
+    if (err) {
+      console.error('Error updating habit:', err);
+      return res.status(500).json({ error: 'Error updating habit' });
+    }
+
+    // Check if the habit was found and updated
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+
+    // Send a success response
+    return res.status(200).json({ message: 'Habit updated successfully', habitId });
+  });
+});
+
+
+
+
 
 app.put('/api/habitcomplete', (req, res) => {
   const { habitid, habitcomplete } = req.body;
@@ -115,7 +143,7 @@ cron.schedule('0 23 * * *', () => {
 
 function updateTracking()
 {
-  const query = 'SELECT habit_name, habit_desc, frequency, idhabit, habit_done FROM habits INNER JOIN habit_complete ON idhabits=idhabit';
+  const query = 'SELECT habit_name, habit_desc, frequency, idhabit, habit_done,days_since_reset FROM habits INNER JOIN habit_complete ON idhabits=idhabit';
 
   db.query(query, (err, results) => {
     if (err) {
@@ -134,6 +162,9 @@ function updateTracking()
 
 
 }
+
+
+
 
 
 // Start the server

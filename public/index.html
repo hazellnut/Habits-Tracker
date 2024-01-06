@@ -40,9 +40,10 @@
         <tr>
           <th>Habit Name</th>
           <th>Habit Description</th>
-          <th>Frequency</th>
+          <th>Frequency (p/w)</th>
           <th> Completed</th>
           <th> Delete</th>
+          <th> Edit </th>
         </tr>
       </thead>
       <tbody id="habitsTableBody">
@@ -115,8 +116,10 @@
             const habitsTableBody = document.getElementById('habitsTableBody');
             habitsTableBody.innerHTML = '';
             habitsData = [];
+            var i = 0;
             data.forEach(habit => {
               const habitRow = document.createElement('tr');
+              habitRow.id = habit.idhabit;
               habitRow.className = 'blank-row';
               if (habit.habit_done)
               {
@@ -129,9 +132,10 @@
                 <td>${habit.frequency}</td>
                 <td><button onclick="toggleHabitStatus(${habit.idhabit})">${habit.habit_done ? 'Not Done' : 'Done'}</button></td>
                 <td><button onclick="deleteButton(${habit.idhabit})">&#128465</button></td>
+                <td><button onclick="editCurrentRow(${habit.idhabit})">edit</button></td>
               `;
               habitsTableBody.appendChild(habitRow);
-              habitsData.push({id: habit.idhabit, name: habit.habit_name, frequency: habit.frequency, completed: habit.habit_done});
+              habitsData.push({id: habit.idhabit, name: habit.habit_name, frequency: habit.frequency, completed: habit.habit_done,desc: habit.habit_desc});
           })
         })
         .catch(error => console.error('Error fetching habits:', error));
@@ -153,8 +157,91 @@
     `;
 
     habitsTableBody.appendChild(newRow);
-    console.log("new row index is:", habitsTableBody.childNodes.length)
+    console.log("new row index is:", habitsTableBody.childNodes.length);
  
+  }
+
+  function editCurrentRow(habitId) {
+    const habitsTableBody = document.getElementById('habitsTableBody');
+    let existingRow;
+    let rowIndex
+    for (let i = 0; i< habitsTableBody.children.length; i++)
+    {
+      const currentRow = habitsTableBody.children[i];
+      if (currentRow.id === String(habitId)) {
+        existingRow = currentRow;
+        rowIndex = i;
+        break; // Exit the loop once the row is found
+      }
+    }
+    // const existingRow = habitsTableBody.children.filter(c=>c.id === String(habitId))[0];
+    curHabit = habitsData.filter(c=>c.id === habitId)[0];
+    const curname = curHabit.name;
+    const curfreq = curHabit.frequency;
+    const curdesc = curHabit.desc;
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+      <td><input type="text" placeholder="${curname}" id ="HabitName_${rowIndex}"></td>
+      <td><input type="text" placeholder="${curdesc}" id ="HabitDesc_${rowIndex}"></td>
+      <td><input type="number" placeholder="${curfreq}" id ="HabitFreq_${rowIndex}"></td>
+      <td>
+        <button onclick="confirmRowEdit(${rowIndex},${habitId})">&#10004;</button>
+        <button onclick="cancelRowCreation(event)">&#10006;</button>
+      </td>
+    `;
+    habitsTableBody.replaceChild(newRow,existingRow);
+  }
+
+  function confirmRowEdit(rowIndex, habitId)
+  {
+    const habitsTableBody = document.getElementById('habitsTableBody');
+    const habitNameInput = document.getElementById(`HabitName_${rowIndex}`);
+    const habitDescInput = document.getElementById(`HabitDesc_${rowIndex}`);
+    const frequencyInput = document.getElementById(`HabitFreq_${rowIndex}`);
+
+    var habitName = habitNameInput.value;
+    var habitDesc = habitDescInput.value;
+    var frequency = frequencyInput.value;
+
+    const habit = habitsData.filter(c=>c.id === habitId)[0];
+    if (habitName === "")
+    {
+      habitName = habit.name;
+    }
+    if (habitDesc === "")
+    {
+      habitDesc = habit.desc;
+    }
+    if (frequency === "")
+    {
+      frequency = habit.frequency;
+    }
+
+    const habitData = {
+      habitName,
+      habitDesc,
+      frequency
+    };
+
+    fetch(`/api/habits/${habitId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(habitData),
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Habit updated successfully:', data);
+    })
+    .catch(error => {
+      console.error('Error updating habit:', error);
+    });
   }
 
   function confirmRowCreation(rowIndex) {
@@ -180,7 +267,11 @@
       habitDesc,
       frequency
     };
-
+    // var habitId = containsName(habitsData,habitName);
+    // if (habitId >-1) {
+    //     putHabit(habitId,habitData);
+    //     return;
+    // }
     // Send the habit information to the server to create the habit
     fetch('/api/habits', {
       method: 'POST',
@@ -202,6 +293,20 @@
       //newRow.remove();
     })
     .catch(error => console.error('Error creating habit:', error));
+    refreshTable();
+  }
+
+  function putHabit(id,data)
+  {
+
+  }
+
+  function containsName(name,data)
+  {
+    const habit = data.find(h => h.name === name);
+    if (habit)
+      return habit.id
+    return -1
   }
 
   function deleteButton(habitsid)
@@ -228,6 +333,33 @@
     })
     .catch(error => console.error('Error deleting habit:', error));
   }
+
+  function editHabit(habitsid)
+  {
+    const query_data = {habitsid};
+    fetch('/api/habits', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(query_data)
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Habit deleted successfully:', data);
+      refreshTable();
+      // Remove the row from the table
+      //newRow.remove();
+    })
+    .catch(error => console.error('Error deleting habit:', error));
+  }
+
+
 
 
 
