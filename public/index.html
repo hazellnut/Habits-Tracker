@@ -8,7 +8,7 @@
     }
 
     .container {
-      max-width: 600px;
+      max-width: 1000px;
       margin: 50px auto;
     }
 
@@ -40,8 +40,11 @@
         <tr>
           <th>Habit Name</th>
           <th>Habit Description</th>
-          <th>Frequency (p/w)</th>
+          <th>Frequency</th>
+          <th>Timescale (per)</th>
           <th> Completed</th>
+          <th> Count</th>
+          <th> Reset Count</th>
           <th> Delete</th>
           <th> Edit </th>
         </tr>
@@ -67,34 +70,82 @@
       // Implement toggling habit status using the API
       const habit = habitsData.find(h => h.id === habitId);
       if (habit) {
-        habit.completed = !habit.completed;
+        habit.completed = false;
+        if ((habit.count + 1) >= habit.frequency)
+        {
+          habit.completed = true;
+        }
         const habitid = habit.id;
         const habitcomplete = habit.completed;
+        const days_since_reset = habit.days_since_reset;
+        const count = habit.count+1;
         const success_data = {
           habitid,
-          habitcomplete
+          habitcomplete,
+          days_since_reset,
+          count
         };
+        put(`/api/habitcomplete`,success_data);
+        refreshTable();
+    }
+  }
 
-        fetch('/api/habitcomplete', {
+  function put(url,data=null)
+  {
+    if (data)
+    {
+      bodycontent=JSON.stringify(data);
+    }
+    else
+    {
+      bodycontent = '';
+    }
+    fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(success_data)
+        body: bodycontent
         })
         .then(response => {
           if (!response.ok) {
             throw new Error('Network response was not ok');
           }
-          return response.json();
+          //return response.json();
         })
         .then(data => {
-          console.log('Habit updated successfully:', data);
-          refreshTable();
+          console.log('updated successfully:', data);
+          
         })
     .catch(error => console.error('Error updating habit:', error));
+  }
+
+  function get(url,data=null)
+  {
+
+  }
+
+
+
+  function resetHabitCount(habitid)
+  {
+    const habit = habitsData.find(h => h.id === habitid);
+      if (habit) {
+        const habitcomplete = false;
+        const days_since_reset = habit.days_since_reset;
+        const count = 0;
+        const success_data = {
+          habitid,
+          habitcomplete,
+          days_since_reset,
+          count
+        };
+        put("/api/habitcomplete",success_data);
+        refreshTable();
     }
   }
+
+
 
     function updateHabitCounts() {
       const totalHabits = habitsData.length;
@@ -130,12 +181,15 @@
                 <td>${habit.habit_name}</td>
                 <td>${habit.habit_desc}</td>
                 <td>${habit.frequency}</td>
-                <td><button onclick="toggleHabitStatus(${habit.idhabit})">${habit.habit_done ? 'Not Done' : 'Done'}</button></td>
+                <td>${habit.timescale}</td>
+                <td><button onclick="toggleHabitStatus(${habit.idhabit})">Done</button></td>
+                <td>${habit.count}</td>
+                <td><button onclick="resetHabitCount(${habit.idhabit})">Reset</button></td>
                 <td><button onclick="deleteButton(${habit.idhabit})">&#128465</button></td>
-                <td><button onclick="editCurrentRow(${habit.idhabit})">edit</button></td>
+                <td><button onclick="editCurrentRow(${habit.idhabit})">&#128393</button></td>
               `;
               habitsTableBody.appendChild(habitRow);
-              habitsData.push({id: habit.idhabit, name: habit.habit_name, frequency: habit.frequency, completed: habit.habit_done,desc: habit.habit_desc});
+              habitsData.push({id: habit.idhabit, name: habit.habit_name, frequency: habit.frequency, completed: habit.habit_done,desc: habit.habit_desc,count:habit.count,days_since_reset: habit.days_since_reset});
           })
         })
         .catch(error => console.error('Error fetching habits:', error));
@@ -150,6 +204,10 @@
       <td><input type="text" placeholder="Enter habit name" id ="HabitName_${rowNum}"></td>
       <td><input type="text" placeholder="Enter habit description" id ="HabitDesc_${rowNum}"></td>
       <td><input type="number" placeholder="Enter frequency" id ="HabitFreq_${rowNum}"></td>
+      <td><select id="dropdown_${rowNum}" name="dropdown">
+        <option value="DAY">Day</option>
+        <option value="WEEK">Week</option>
+        <option value="MONTH">Month</option></select>
       <td>
         <button onclick="confirmRowCreation(${rowNum})">&#10004;</button>
         <button onclick="cancelRowCreation(event)">&#10006;</button>
@@ -222,26 +280,8 @@
       habitDesc,
       frequency
     };
-
-    fetch(`/api/habits/${habitId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(habitData),
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log('Habit updated successfully:', data);
-    })
-    .catch(error => {
-      console.error('Error updating habit:', error);
-    });
+    put(`/api/habits/${habitId}`,habitData);
+    refreshTable();
   }
 
   function confirmRowCreation(rowIndex) {
@@ -253,11 +293,12 @@
     const habitNameInput = document.getElementById(`HabitName_${rowIndex}`);
     const habitDescInput = document.getElementById(`HabitDesc_${rowIndex}`);
     const frequencyInput = document.getElementById(`HabitFreq_${rowIndex}`);
-
+    const timescaleInput = document.getElementById(`dropdown_${rowIndex}`)
 
     const habitName = habitNameInput.value;
     const habitDesc = habitDescInput.value;
     const frequency = frequencyInput.value;
+    const timescale = timescaleInput.value;
 
     console.log('Habit data to be sent:', { habitName, habitDesc, frequency });
 
@@ -265,7 +306,8 @@
     const habitData = {
       habitName,
       habitDesc,
-      frequency
+      frequency,
+      timescale
     };
     // var habitId = containsName(habitsData,habitName);
     // if (habitId >-1) {
@@ -294,19 +336,6 @@
     })
     .catch(error => console.error('Error creating habit:', error));
     refreshTable();
-  }
-
-  function putHabit(id,data)
-  {
-
-  }
-
-  function containsName(name,data)
-  {
-    const habit = data.find(h => h.name === name);
-    if (habit)
-      return habit.id
-    return -1
   }
 
   function deleteButton(habitsid)
