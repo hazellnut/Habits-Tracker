@@ -3,9 +3,9 @@ const mysql = require('mysql2');
 const cron = require('node-cron');
 const app = express();
 
-const habit_query = 'SELECT habit_name, habit_desc, frequency, timescale, idhabit, habit_done,days_since_reset,count FROM habits INNER JOIN habit_complete ON idhabits=idhabit';
+const habit_query = 'SELECT habit_name, habit_desc, frequency, timescale, idhabit, habit_done,days_since_reset,count,category FROM habits INNER JOIN habit_complete ON idhabit =idhabits INNER JOIN habit_category ON cat_id = idhabit_category';
 
-
+const cat_query = 'SELECT category from habit_category';
 // MySQL configuration
 const db = mysql.createConnection({
   host: 'localhost',
@@ -38,40 +38,16 @@ app.get('/api/habits', (req, res) => {
   });
 });
 // API endpoint to create a habit
-app.post('/api/habits', (req, res) => {
-  const { habitName, habitDesc, frequency,timescale } = req.body;
+app.post('/api/habits', async (req, res) => {
+  res_status = await createHabit(req,res);
+  return res_status;
 
-  if (!habitName || !habitDesc || !frequency) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-
-  const query = 'INSERT INTO habits (habit_name, habit_desc, frequency,timescale) VALUES (?, ?, ?, ?)';
-  db.query(query, [habitName, habitDesc, frequency,timescale], (err, result) => {
-    
-    if (err) {
-      console.error('Error creating habit:', err);
-      return res.status(500).json({ error: 'Error creating habit' });
-    }
-    const query_id = result.insertId;
-    const init_success_field = 'INSERT INTO habit_complete (idhabit, habit_done,days_since_reset,count) VALUES (?,?,?,?)';
-    db.query(init_success_field,[query_id,false,0,0],(err,result)=>{
-      if (err) {
-        console.error('Error adding habit complete');
-        return res.status(500).json({ error: 'Error adding habit complete'});
-      }
-    }); 
-  
-
-
-    // Send a success response
-    return res.status(201).json({ message: 'Habit created successfully', habitId: result.insertId });
-  });
 });
 
 
 app.put('/api/habits/:habitId', (req, res) => {
   const habitId = req.params.habitId;
-  const { habitName, habitDesc, frequency } = req.body;
+  const { habitName, habitDesc, frequency,timescale,cat } = req.body;
 
   if (!habitName || !habitDesc || !frequency) {
     return res.status(400).json({ error: 'All fields are required' });
@@ -95,7 +71,17 @@ app.put('/api/habits/:habitId', (req, res) => {
 });
 
 
+app.get('/api/categories',(req,res)=>{
+  const query = cat_query;
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching categories from the database' });
+      return;
+    }
+    res.json(results);
+  });
 
+})
 
 
 app.put('/api/habitcomplete', (req, res) => {
@@ -139,10 +125,45 @@ app.delete('/api/habits', (req, res) => {
   });
 });
 
-cron.schedule('59 59 18 * * *', () => {
+cron.schedule('59 59 23 * * *', () => {
   console.log('Running the database update task...');
   updateTracking();
 });
+
+
+async function createHabit(req,res)
+{
+  const { habitName, habitDesc, frequency,timescale, cat } = req.body;
+
+  if (!habitName || !habitDesc || !frequency || !timescale || !cat) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  const cat_query = mysql.format('SELECT idhabit_category FROM habit_category WHERE category = ?',cat);
+  var cat_id = await getQuery(cat_query);
+
+  const query = 'INSERT INTO habits (habit_name, habit_desc, frequency,timescale,cat_id) VALUES (?, ?, ?, ?,?)';
+  db.query(query, [habitName, habitDesc, frequency,timescale,cat_id[0]['idhabit_category']], (err, result) => {
+    
+    if (err) {
+      console.error('Error creating habit:', err);
+      return res.status(500).json({ error: 'Error creating habit' });
+    }
+    const query_id = result.insertId;
+    const init_success_field = 'INSERT INTO habit_complete (idhabit, habit_done,days_since_reset,count) VALUES (?,?,?,?)';
+    db.query(init_success_field,[query_id,false,0,0],(err,result)=>{
+      if (err) {
+        console.error('Error adding habit complete');
+        return res.status(500).json({ error: 'Error adding habit complete'});
+      }
+    }); 
+  
+
+
+    // Send a success response
+    return res.status(201).json({ message: 'Habit created successfully', habitId: result.insertId });
+  });
+}
+
 
 
 async function updateTracking()
@@ -171,18 +192,20 @@ async function updateTracking()
       }
       if (habit.days_since_reset >= days)
       {
-        //update tracking
+        
         const reset_query = `UPDATE habit_complete SET days_since_reset = 0, count = 0, habit_done = 0 WHERE idhabit = ?`;
         const tracking_query = `INSERT INTO tracking (idhabit, start_time, end_time, complete, complete_count) VALUES (?, ?, ?, ?, ?)`;
+        //update days since reset
         console.log(internalQuery(reset_query,[habit.idhabit]));
         const end_date = new Date();
         const start_date = new Date(end_date);
         start_date.setDate(end_date.getDate()-days);
         
-        //add to the tracking
+        //add to the tracking table
         const idhabit = habit.idhabit;
         const habitdone = habit.habit_done;
         const habitcount = habit.count;
+        //convert to mysql date format
         const ms_start = mysql_date(start_date);
         const ms_end = mysql_date(end_date);
 
